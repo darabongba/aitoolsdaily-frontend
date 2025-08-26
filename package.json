@@ -1,7 +1,7 @@
 {
-  "name": "steam-price-monitor-frontend",
+  "name": "aitoolsdaily-frontend",
   "version": "1.0.0",
-  "description": "Steam游戏降价提醒工具 - 纯前端版本",
+  "description": "AI Tools Daily - 纯前端版本",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -50,7 +50,6 @@
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@types/crypto-js": "^4.2.1",
-    "puppeteer": "^23.11.1",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "@vitejs/plugin-react": "^4.1.1",
@@ -82,7 +81,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/darabongba/steam-price-monitor-frontend.git"
+    "url": "https://github.com/darabongba/aitoolsdaily-frontend.git"
   },
   "engines": {
     "node": ">=18.0.0",

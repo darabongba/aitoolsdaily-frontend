@@ -1,171 +1,146 @@
-# Steam 游戏降价提醒
+# AI Tools Web Page
 
-一个专为Steam游戏玩家打造的价格监控工具，帮助您在最佳时机购买心仪的游戏。
+一个基于React和TypeScript的AI工具Web应用，集成了Coze API，用于生成思维导图和其他AI功能。
 
-## ✨ 主要特性
+## 功能特性
 
-- 🎮 **实时价格监控** - 自动监控Steam游戏价格变化
-- 📧 **智能提醒系统** - 支持邮件和浏览器推送通知
-- 💾 **离线PWA应用** - 支持离线使用，可安装到桌面
-- 🔒 **数据安全可靠** - 所有数据存储在本地，保护用户隐私
-- 🌙 **深色模式支持** - 自适应系统主题
-- 📱 **响应式设计** - 完美适配桌面和移动设备
+### 1. 脑图生成
+- 支持URL和文本输入
+- 实时生成思维导图
+- Markdown格式展示
+- 历史记录管理
+- 展开/收起视图控制
 
-## 🚀 快速开始
+### 2. 安全认证
+- 用户名密码登录
+- 多重加密保护
+- 登录尝试限制
+- Token基础的会话管理
+- 自动登出机制
 
-### 环境要求
+### 3. 数据存储
+- 使用IndexDB本地存储
+- 自动清理过期数据
+- 历史记录管理
+- 安全的数据加密
 
-- Node.js 18+
-- pnpm 8+
+## 技术栈
 
-### 安装依赖
+- React 18
+- TypeScript
+- Tailwind CSS
+- Dexie.js (IndexDB)
+- CryptoJS
+- React Router
+- React Markdown
+- Coze API
 
+## 安装说明
+
+1. 克隆项目
 ```bash
-# 克隆项目
-git clone https://github.com/your-username/steam-price-notification.git
-cd steam-price-notification
-
-# 安装依赖
-pnpm install
+git clone [repository-url]
+cd aiToolsWebPage
 ```
 
-### 环境配置
-
+2. 安装依赖
 ```bash
-# 复制环境变量模板
-cp env.example .env
-
-# 编辑环境变量
-# 配置Steam API和EmailJS等服务
+npm install
 ```
 
-### 开发运行
-
+3. 启动开发服务器
 ```bash
-# 启动开发服务器
-pnpm dev
-
-# 构建生产版本
-pnpm build
-
-# 预览生产版本
-pnpm preview
+npm run dev
 ```
 
-## 📦 技术栈
+## 环境要求
 
-- **前端框架**: React 18 + TypeScript
-- **构建工具**: Vite 5
-- **样式框架**: Tailwind CSS
-- **状态管理**: Zustand
-- **数据查询**: TanStack Query
-- **数据存储**: IndexedDB (Dexie.js)
-- **PWA支持**: Vite PWA Plugin
-- **邮件服务**: EmailJS
-- **图标库**: Lucide React
+- Node.js >= 18.0.0
+- npm >= 8.0.0
 
-## 🏗️ 项目结构
+## 项目结构
 
 ```
-steamPriceOffNotification/
-├── public/                 # 静态资源
-│   ├── sw.js              # Service Worker
-│   └── manifest.json      # PWA配置
-├── src/
-│   ├── components/        # 可复用组件
-│   │   ├── common/       # 通用UI组件
-│   │   ├── GameSearch/   # 游戏搜索组件
-│   │   └── PriceAlert/   # 价格提醒组件
-│   ├── pages/            # 页面组件
-│   ├── hooks/            # 自定义Hooks
-│   ├── services/         # 服务层
-│   ├── stores/           # 状态管理
-│   ├── types/            # TypeScript类型
-│   ├── utils/            # 工具函数
-│   └── App.tsx           # 应用入口
-├── package.json
-├── vite.config.ts        # Vite配置
-├── tailwind.config.js    # Tailwind配置
-└── tsconfig.json         # TypeScript配置
+src/
+├── components/        # 组件目录
+│   ├── common/       # 通用组件
+│   └── AuthGuard.tsx # 路由守卫
+├── pages/            # 页面组件
+│   ├── HomePage.tsx  # 主页
+│   └── LoginPage.tsx # 登录页
+├── services/         # 服务层
+│   ├── coze.ts      # Coze API服务
+│   └── auth.ts      # 认证服务
+├── utils/           # 工具函数
+│   └── crypto.ts    # 加密工具
+├── config/          # 配置文件
+├── db/              # 数据库配置
+└── App.tsx          # 应用入口
 ```
 
-## 🔧 配置说明
+## 使用说明
 
-### Steam API配置
+### 登录
+- 默认用户名和密码已通过加密方式存储
+- 登录失败5次后将被限制15分钟
+- 登录成功后token有效期为一个月
 
-1. 获取Steam API密钥：[Steam Web API](https://steamcommunity.com/dev/apikey)
-2. 配置代理服务器（解决CORS问题）
-3. 在`.env`文件中设置相关变量
+### 脑图生成
+1. 选择输入类型（URL/文本）
+2. 输入内容
+3. 点击提交按钮
+4. 等待生成结果
+5. 查看生成的思维导图
 
-### EmailJS配置
+### 历史记录
+- 在历史记录标签页查看所有生成记录
+- 使用展开/收起功能查看详细内容
+- 按时间倒序排列
 
-1. 注册[EmailJS](https://www.emailjs.com/)账户
-2. 创建邮件服务和模板
-3. 在`.env`文件中配置服务ID、模板ID和公钥
+## 安全说明
 
-### PWA配置
+- 所有敏感信息都经过多重加密
+- 使用加盐哈希进行密码验证
+- 实现了防暴力破解机制
+- 自动清理过期的认证信息
 
-应用支持PWA功能，用户可以：
-- 将应用安装到桌面
-- 离线使用基本功能
-- 接收推送通知
+## 开发说明
 
-## 📱 功能介绍
-
-### 游戏搜索
-- 搜索Steam平台上的游戏
-- 查看游戏详情和价格信息
-- 支持多种排序和过滤方式
-
-### 价格提醒
-- 设置目标价格
-- 自动监控价格变化
-- 多种通知方式（邮件、推送）
-
-### 数据管理
-- 本地数据存储
-- 数据导入导出
-- 统计信息查看
-
-## 🔄 部署
-
-### Vercel部署
-
+### 构建生产版本
 ```bash
-# 安装Vercel CLI
-npm i -g vercel
-
-# 部署到Vercel
-vercel --prod
+npm run build
 ```
 
-### 其他平台
+### 代码检查
+```bash
+npm run lint
+```
 
-项目支持部署到任何静态网站托管平台：
-- Netlify
-- GitHub Pages
-- Cloudflare Pages
+### 类型检查
+```bash
+npm run type-check
+```
 
-## 🤝 贡献指南
+### 格式化代码
+```bash
+npm run format
+```
+
+## 注意事项
+
+1. 请定期更换加密密钥以提高安全性
+2. 建议定期清理本地存储的历史记录
+3. 避免在公共设备上保持登录状态
+4. 确保Coze API Token的安全性
+
+## 贡献指南
 
 1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+2. 创建功能分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
 
-## 📄 许可证
+## 许可证
 
-本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## ⚠️ 免责声明
-
-本项目与 Valve Corporation 或 Steam 无关联。Steam 是 Valve Corporation 的商标。
-
-## 🙏 致谢
-
-感谢所有为这个项目做出贡献的开发者和用户。
-
----
-
-如果这个项目对您有帮助，请给个 ⭐️ 支持一下！
+MIT License
