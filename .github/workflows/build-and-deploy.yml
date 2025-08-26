@@ -93,7 +93,7 @@ jobs:
           fi
           
           # 克隆目标仓库（使用token认证）
-          git clone https://${DEPLOY_TOKEN}@github.com/aitoolsdaily/aitoolsdaily.github.io.git pages-repo
+          git clone https://${DEPLOY_TOKEN}@github.com/niceaitools/niceaitools.github.io.git pages-repo
           cd pages-repo
           
           # 配置Git用户信息
