@@ -125,7 +125,7 @@ const HomePage: React.FC = () => {
           </div>
           
           {markdownContent && (
-            <div className="mt-8 p-4 border rounded-lg bg-white">
+            <div className="mt-8 p-4 border rounded-lg bg-white  h-[calc(100vh-400px)] overflow-y-auto">
               <ReactMarkdown>{markdownContent}</ReactMarkdown>
             </div>
           )}

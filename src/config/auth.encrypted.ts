@@ -2,8 +2,6 @@ import { encrypt, hash } from '../utils/crypto';
 
 // 预先计算的哈希值和加密值
 export const AUTH_CONFIG = {
-  USERNAME_HASH: hash('zhangyunpeng'),
-  PASSWORD_HASH: hash('507933'),
-  ENCRYPTED_USERNAME: encrypt('zhangyunpeng'),
-  ENCRYPTED_PASSWORD: encrypt('507933')
+  USERNAME_HASH: 'e6a936962810527de556d9c4cd2c4c1c839af838219358a591f6e85fb683f5c2',
+  PASSWORD_HASH: '76752dfbfc5ceab281fc341d149e2030cf12019c4cdcae4ce26a78dc3afc9c62',
 };
