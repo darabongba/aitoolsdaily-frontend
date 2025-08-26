@@ -1,4 +1,4 @@
-import { encrypt, hash } from '../utils/crypto';
+
 
 // 预先计算的哈希值和加密值
 export const AUTH_CONFIG = {
