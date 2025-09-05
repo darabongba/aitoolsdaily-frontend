@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Search, Bell, Settings, Moon, Sun } from 'lucide-react';
+import { Home, Search, Bell, Settings, Moon, Sun,Image } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,7 +37,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navigation = [
     { name: '首页', href: '/', icon: Home },
-    { name: '功能1', href: '/search', icon: Search },
+    { name: '图片生成', href: '/genimg', icon: Image },
     { name: '功能2', href: '/alerts', icon: Bell },
     { name: '功能3', href: '/settings', icon: Settings },
   ];
@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </nav>
 
       {/* 主要内容区域 */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 h-[calc(100vh-120px)] overflow-y-hidden overflow-x-hidden">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8  overflow-y-hidden overflow-x-hidden">
         <div className="px-4 py-6 sm:px-0">
           {children}
         </div>

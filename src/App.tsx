@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthGuard } from './components/AuthGuard';
 import LoginPage from './pages/LoginPage';
@@ -8,6 +8,21 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();
+const GenImgPage = lazy(() => import('./pages/GenImage'));
+
+// Loading 组件
+const PageLoading = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '200px',
+    fontSize: '16px',
+    color: '#666'
+  }}>
+    <div>加载中...</div>
+  </div>
+);
 
 const App: React.FC = () => {
   return (
@@ -23,6 +38,18 @@ const App: React.FC = () => {
             <AuthGuard>
                <Layout>
               <HomePage />
+              </Layout>
+            </AuthGuard>
+          }
+        />
+             <Route
+          path="/genimg"
+          element={
+            <AuthGuard>
+               <Layout>
+                <Suspense fallback={<PageLoading />}>
+                  <GenImgPage />
+                </Suspense>
               </Layout>
             </AuthGuard>
           }
