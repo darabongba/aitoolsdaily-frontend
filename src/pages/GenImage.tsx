@@ -1,21 +1,123 @@
-import { useState } from 'react';
-import { Upload, Card, Button, Spin, message, Typography } from 'antd';
-import { InboxOutlined, SendOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
+import { Upload, Card, Button, Spin, message, Typography, Tabs, Empty, Popconfirm } from 'antd';
+import { InboxOutlined, SendOutlined, HistoryOutlined, DeleteOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import YpyunUploader from '../services/ypyun';
 import { runCozeWorkflow } from '../services/coze';
+import { db, GenImageRecord } from '../db';
 
 const { Dragger } = Upload;
-const { Title, Paragraph } = Typography;
+const { Title } = Typography;
+
+// 保持接口兼容性
+interface HistoryRecord {
+  id: string;
+  originalImage: string;
+  resultImages: string[];
+  markdown: string;
+  timestamp: number;
+  title?: string;
+}
 
 export default function GenImage() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [result, setResult] = useState<string>('');
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [activeTab, setActiveTab] = useState('upload');
 
   // 创建又拍云上传实例
   const uploader = new YpyunUploader();
+
+
+  // 加载历史记录
+  const loadHistory = async () => {
+    try {
+      const records = await db.genImages
+        .orderBy('timestamp')
+        .reverse()
+        .toArray();
+      
+      const historyRecords: HistoryRecord[] = records.map(record => ({
+        id: record.id,
+        originalImage: record.originalImage,
+        resultImages: record.resultImages,
+        markdown: record.markdown,
+        timestamp: record.timestamp,
+        title: record.title
+      }));
+      
+      setHistory(historyRecords);
+    } catch (error) {
+      console.error('加载历史记录失败:', error);
+      message.error('加载历史记录失败');
+    }
+  };
+
+  // 保存历史记录
+  const saveHistoryRecord = async (record: HistoryRecord) => {
+    try {
+      const genImageRecord: GenImageRecord = {
+        ...record,
+        createdAt: new Date(record.timestamp)
+      };
+      
+      await db.genImages.add(genImageRecord);
+      
+      // 重新加载历史记录
+      await loadHistory();
+    } catch (error) {
+      console.error('保存历史记录失败:', error);
+      message.error('保存历史记录失败');
+    }
+  };
+
+  // 删除历史记录
+  const deleteHistoryRecord = async (id: string) => {
+    try {
+      await db.genImages.delete(id);
+      await loadHistory();
+      message.success('删除成功');
+    } catch (error) {
+      console.error('删除历史记录失败:', error);
+      message.error('删除失败');
+    }
+  };
+
+  // 清空所有历史记录
+  const clearAllHistory = async () => {
+    try {
+      await db.genImages.clear();
+      await loadHistory();
+      message.success('已清空所有历史记录');
+    } catch (error) {
+      console.error('清空历史记录失败:', error);
+      message.error('清空失败');
+    }
+  };
+
+  // 初始化
+  useEffect(() => {
+    const init = async () => {
+      await loadHistory();
+    };
+    
+    init();
+  }, []);
+
+  // 从markdown中提取图片URL
+  const extractImageUrls = (markdown: string): string[] => {
+    const imageRegex = /!\[.*?\]\((https?:\/\/[^\)]+)\)/g;
+    const urls: string[] = [];
+    let match;
+    
+    while ((match = imageRegex.exec(markdown)) !== null) {
+      urls.push(match[1]);
+    }
+    
+    return urls;
+  };
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -56,9 +158,25 @@ export default function GenImage() {
     try {
       const response = await runCozeWorkflow('7543155784399323199', { url: imageUrl });
       console.log('Response:', response);
-      const data =JSON.parse(response.data);
+      const data = JSON.parse(response.data);
       // @ts-ignore
-      setResult(data?.data);
+      const resultMarkdown = data?.data || '';
+      setResult(resultMarkdown);
+      
+      // 提取图片URL并保存到历史记录
+      const resultImages = extractImageUrls(resultMarkdown);
+      const newRecord: HistoryRecord = {
+        id: Date.now().toString(),
+        originalImage: imageUrl,
+        resultImages,
+        markdown: resultMarkdown,
+        timestamp: Date.now(),
+        title: `处理结果 ${new Date().toLocaleString()}`
+      };
+      
+      // 保存到IndexedDB
+      await saveHistoryRecord(newRecord);
+      
       message.success('图片处理完成！');
     } catch (error: any) {
       console.error('Process error:', error);
@@ -79,109 +197,294 @@ export default function GenImage() {
     showUploadList: false,
   };
 
-  return (
-    <div style={{  maxWidth: '1200px', margin: '0 auto' }}>
-      
-      {/* 上传区域 */}
-      <Card title="选择图片" style={{ marginBottom: '24px' }}>
-        <Dragger {...uploadProps} disabled={uploading}>
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined />
-          </p>
-          <p className="ant-upload-text">
-            {uploading ? '正在上传...' : '点击或拖拽图片到此区域上传'}
-          </p>
-          <p className="ant-upload-hint">
-            支持 JPG、PNG、GIF、WEBP 格式，文件大小不超过 10MB
-          </p>
-        </Dragger>
-      </Card>
-
-      {/* 图片预览和提交区域 */}
-      {imageUrl && (
-        <div>
-                  <Card title="上传的图片" style={{ marginBottom: '24px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <img 
-              src={imageUrl} 
-              alt="uploaded" 
-              style={{ 
-                margin: '0 auto',
-                width: '60%', 
-                maxHeight: '400px', 
-                objectFit: 'contain',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-              }} 
-            />
-
-          </div>
-        </Card>
-          <div style={{ marginTop: '20px',textAlign: 'center',marginBottom: '20px' }}>
-              <Button
-                type="primary"
-                size="large"
-                icon={<SendOutlined />}
-                loading={processing}
-                onClick={processImage}
-                style={{ fontSize: '16px', height: '48px', paddingLeft: '24px', paddingRight: '24px' }}
-              >
-                {processing ? '处理中...' : '提交给 Coze 工作流处理'}
-              </Button>
-            </div>
+  // 瀑布流组件
+  const WaterfallGrid = ({ records }: { records: HistoryRecord[] }) => {
+    if (records.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Empty description="暂无历史记录" />
         </div>
+      );
+    }
 
-        
-      )}
+    return (
+      <div style={{ 
+        columns: '3 300px',
+        columnGap: '16px',
+        padding: '16px'
+      }}>
+        {records.map((record) => (
+          <div key={record.id} style={{ 
+            breakInside: 'avoid',
+            marginBottom: '16px',
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'transform 0.2s ease'
+          }}>
+            {/* 原图 */}
+            <div style={{ position: 'relative' }}>
+              <img 
+                src={record.originalImage} 
+                alt="原图"
+                style={{ 
+                  width: '100%', 
+                  height: 'auto',
+                  display: 'block'
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                left: '8px',
+                background: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px'
+              }}>
+                原图
+              </div>
+            </div>
 
-      {/* 处理状态 */}
-      {processing && (
-        <Card style={{ marginBottom: '24px' }}>
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <Spin size="large" />
-            <p style={{ marginTop: '16px', fontSize: '16px', color: '#666' }}>正在处理图片，请稍候...</p>
+            {/* 处理结果图片 */}
+            {record.resultImages.map((imgUrl, index) => (
+              <div key={index} style={{ position: 'relative' }}>
+                <img 
+                  src={imgUrl} 
+                  alt={`结果图 ${index + 1}`}
+                  style={{ 
+                    width: '100%', 
+                    height: 'auto',
+                    display: 'block'
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  background: 'rgba(24, 144, 255, 0.8)',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}>
+                  结果 {index + 1}
+                </div>
+              </div>
+            ))}
+
+            {/* 信息区域 */}
+            <div style={{ padding: '12px' }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'flex-start',
+                marginBottom: '8px'
+              }}>
+                <div style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '500',
+                  color: '#333',
+                  flex: 1
+                }}>
+                  {record.title}
+                </div>
+                <Popconfirm
+                  title="确定要删除这条记录吗？"
+                  onConfirm={() => deleteHistoryRecord(record.id)}
+                  okText="确定"
+                  cancelText="取消"
+                >
+                  <Button 
+                    type="text" 
+                    size="small" 
+                    icon={<DeleteOutlined />}
+                    style={{ color: '#ff4d4f' }}
+                  />
+                </Popconfirm>
+              </div>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#666',
+                marginBottom: '8px'
+              }}>
+                {new Date(record.timestamp).toLocaleString()}
+              </div>
+              {record.resultImages.length > 0 && (
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: '#1890ff'
+                }}>
+                  生成了 {record.resultImages.length} 张图片
+                </div>
+              )}
+            </div>
           </div>
-        </Card>
-      )}
+        ))}
+      </div>
+    );
+  };
 
-      {/* 处理结果 */}
-      {result && (
-        <Card title="处理结果" style={{ marginBottom: '24px' }}>
-          <div 
-            style={{ 
-              background: '#f9f9f9', 
-              padding: '20px', 
-              borderRadius: '8px',
-              border: '1px solid #e8e8e8',
-              maxHeight: '600px',
-              overflowY: 'auto',
-              width: '300px',
-              margin:'0 auto'
-            }}
-          >
-            <ReactMarkdown
-              components={{
-                // 自定义样式
-                h1: ({children}) => <h1 style={{color: '#1890ff', borderBottom: '2px solid #1890ff', paddingBottom: '8px'}}>{children}</h1>,
-                h2: ({children}) => <h2 style={{color: '#1890ff', borderBottom: '1px solid #d9d9d9', paddingBottom: '4px'}}>{children}</h2>,
-                h3: ({children}) => <h3 style={{color: '#1890ff'}}>{children}</h3>,
-                p: ({children}) => <p style={{lineHeight: '1.6', marginBottom: '12px'}}>{children}</p>,
-                ul: ({children}) => <ul style={{paddingLeft: '20px', marginBottom: '12px'}}>{children}</ul>,
-                ol: ({children}) => <ol style={{paddingLeft: '20px', marginBottom: '12px'}}>{children}</ol>,
-                li: ({children}) => <li style={{marginBottom: '4px'}}>{children}</li>,
-                code: ({children}) => <code style={{background: '#f0f0f0', padding: '2px 4px', borderRadius: '3px', fontFamily: 'monospace'}}>{children}</code>,
-                pre: ({children}) => <pre style={{background: '#f0f0f0', padding: '12px', borderRadius: '6px', overflow: 'auto', fontFamily: 'monospace'}}>{children}</pre>,
-                blockquote: ({children}) => <blockquote style={{borderLeft: '4px solid #1890ff', paddingLeft: '16px', margin: '16px 0', fontStyle: 'italic', color: '#666'}}>{children}</blockquote>,
-                table: ({children}) => <table style={{borderCollapse: 'collapse', width: '100%', marginBottom: '16px'}}>{children}</table>,
-                th: ({children}) => <th style={{border: '1px solid #d9d9d9', padding: '8px', background: '#fafafa', textAlign: 'left'}}>{children}</th>,
-                td: ({children}) => <td style={{border: '1px solid #d9d9d9', padding: '8px'}}>{children}</td>,
-              }}
-            >
-              {result}
-            </ReactMarkdown>
-          </div>
-        </Card>
-      )}
+  const tabItems = [
+    {
+      key: 'upload',
+      label: (
+        <span style={{ color: activeTab === 'upload' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
+          <SendOutlined />
+          图片处理
+        </span>
+      ),
+      children: (
+        <div>
+          {/* 上传区域 */}
+          <Card title="选择图片" style={{ marginBottom: '24px' }}>
+            <Dragger {...uploadProps} disabled={uploading}>
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">
+                {uploading ? '正在上传...' : '点击或拖拽图片到此区域上传'}
+              </p>
+              <p className="ant-upload-hint">
+                支持 JPG、PNG、GIF、WEBP 格式，文件大小不超过 10MB
+              </p>
+            </Dragger>
+          </Card>
+
+          {/* 图片预览和提交区域 */}
+          {imageUrl && (
+            <div>
+              <Card title="上传的图片" style={{ marginBottom: '24px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <img 
+                    src={imageUrl} 
+                    alt="uploaded" 
+                    style={{ 
+                      margin: '0 auto',
+                      width: '60%', 
+                      maxHeight: '400px', 
+                      objectFit: 'contain',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }} 
+                  />
+                </div>
+              </Card>
+              <div style={{ marginTop: '20px',textAlign: 'center',marginBottom: '20px' }}>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<SendOutlined />}
+                  loading={processing}
+                  onClick={processImage}
+                  style={{ fontSize: '16px', height: '48px', paddingLeft: '24px', paddingRight: '24px' }}
+                >
+                  {processing ? '处理中...' : '提交给 Coze 工作流处理'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 处理状态 */}
+          {processing && (
+            <Card style={{ marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin size="large" />
+                <p style={{ marginTop: '16px', fontSize: '16px', color: '#666' }}>正在处理图片，请稍候...</p>
+              </div>
+            </Card>
+          )}
+
+          {/* 处理结果 */}
+          {result && (
+            <Card title="处理结果" style={{ marginBottom: '24px' }}>
+              <div 
+                style={{ 
+                  background: '#f9f9f9', 
+                  padding: '20px', 
+                  borderRadius: '8px',
+                  border: '1px solid #e8e8e8',
+                  maxHeight: '600px',
+                  overflowY: 'auto'
+                }}
+              >
+                <ReactMarkdown
+                  components={{
+                    // 自定义样式
+                    h1: ({children}) => <h1 style={{color: '#1890ff', borderBottom: '2px solid #1890ff', paddingBottom: '8px'}}>{children}</h1>,
+                    h2: ({children}) => <h2 style={{color: '#1890ff', borderBottom: '1px solid #d9d9d9', paddingBottom: '4px'}}>{children}</h2>,
+                    h3: ({children}) => <h3 style={{color: '#1890ff'}}>{children}</h3>,
+                    p: ({children}) => <p style={{lineHeight: '1.6', marginBottom: '12px'}}>{children}</p>,
+                    ul: ({children}) => <ul style={{paddingLeft: '20px', marginBottom: '12px'}}>{children}</ul>,
+                    ol: ({children}) => <ol style={{paddingLeft: '20px', marginBottom: '12px'}}>{children}</ol>,
+                    li: ({children}) => <li style={{marginBottom: '4px'}}>{children}</li>,
+                    code: ({children}) => <code style={{background: '#f0f0f0', padding: '2px 4px', borderRadius: '3px', fontFamily: 'monospace'}}>{children}</code>,
+                    pre: ({children}) => <pre style={{background: '#f0f0f0', padding: '12px', borderRadius: '6px', overflow: 'auto', fontFamily: 'monospace'}}>{children}</pre>,
+                    blockquote: ({children}) => <blockquote style={{borderLeft: '4px solid #1890ff', paddingLeft: '16px', margin: '16px 0', fontStyle: 'italic', color: '#666'}}>{children}</blockquote>,
+                    table: ({children}) => <table style={{borderCollapse: 'collapse', width: '100%', marginBottom: '16px'}}>{children}</table>,
+                    th: ({children}) => <th style={{border: '1px solid #d9d9d9', padding: '8px', background: '#fafafa', textAlign: 'left'}}>{children}</th>,
+                    td: ({children}) => <td style={{border: '1px solid #d9d9d9', padding: '8px'}}>{children}</td>,
+                  }}
+                >
+                  {result}
+                </ReactMarkdown>
+              </div>
+            </Card>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'history',
+      label: (
+        <span style={{ color: activeTab === 'history' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
+          <HistoryOutlined />
+          历史记录 ({history.length})
+        </span>
+      ),
+      children: (
+        <div>
+          {history.length > 0 && (
+            <div style={{ marginBottom: '16px', textAlign: 'right' }}>
+              <Popconfirm
+                title="确定要清空所有历史记录吗？此操作不可恢复！"
+                onConfirm={clearAllHistory}
+                okText="确定"
+                cancelText="取消"
+                okType="danger"
+              >
+                <Button type="text" danger icon={<DeleteOutlined />}>
+                  清空所有记录
+                </Button>
+              </Popconfirm>
+            </div>
+          )}
+          <WaterfallGrid records={history} />
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
+      <Title level={2} style={{ textAlign: 'center', marginBottom: '32px' }}>
+        图片处理工作台
+      </Title>
+      
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
+        size="large"
+      />
     </div>
   );
 }

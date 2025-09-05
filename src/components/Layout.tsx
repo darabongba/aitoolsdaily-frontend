@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Search, Bell, Settings, Moon, Sun,Image } from 'lucide-react';
+import { Home, Bell, Settings, Moon, Sun,Image } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
