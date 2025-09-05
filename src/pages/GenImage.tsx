@@ -23,6 +23,7 @@ export default function GenImage() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>('');
+  const [bgImageUrl, setBgImageUrl] = useState<string>('');
   const [result, setResult] = useState<string>('');
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [activeTab, setActiveTab] = useState('upload');
@@ -119,9 +120,11 @@ export default function GenImage() {
     return urls;
   };
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File, isBgImage: boolean = false) => {
     setUploading(true);
-    setResult('');
+    if (!isBgImage) {
+      setResult('');
+    }
     
     try {
       // 生成文件保存路径
@@ -139,8 +142,14 @@ export default function GenImage() {
       
       // 构建图片URL
       const fullImageUrl = `http://dumpling-image-store.test.upcdn.net${saveKey}`;
-      setImageUrl(fullImageUrl);
-      message.success('图片上传成功！');
+      
+      if (isBgImage) {
+        setBgImageUrl(fullImageUrl);
+        message.success('背景图片上传成功！');
+      } else {
+        setImageUrl(fullImageUrl);
+        message.success('主图上传成功！');
+      }
 
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -150,28 +159,55 @@ export default function GenImage() {
     }
   };
 
-  const processImage = async () => {
+  const processImage = async (type: number = 1, bgUrl?: string) => {
     if (!imageUrl) return;
     
     setProcessing(true);
     
     try {
-      const response = await runCozeWorkflow('7543155784399323199', { url: imageUrl });
+      const parameters: any = { url: imageUrl, type };
+      if (bgUrl) {
+        parameters.bgUrl = bgUrl;
+      }
+      
+      const response = await runCozeWorkflow('7543155784399323199', parameters);
       console.log('Response:', response);
       const data = JSON.parse(response.data);
-      // @ts-ignore
-      const resultMarkdown = data?.data || '';
+      
+      // 根据不同类型获取不同的返回参数
+      let resultMarkdown = '';
+      switch (type) {
+        case 1:
+          resultMarkdown = data?.data || '';
+          break;
+        case 2:
+          resultMarkdown = data?.bgchange || '';
+          break;
+        case 3:
+          resultMarkdown = data?.cutout || '';
+          break;
+        case 4:
+          resultMarkdown = data?.style || '';
+          break;
+        case 5:
+          resultMarkdown = data?.face || '';
+          break;
+        default:
+          resultMarkdown = data?.data || '';
+      }
+      
       setResult(resultMarkdown);
       
       // 提取图片URL并保存到历史记录
       const resultImages = extractImageUrls(resultMarkdown);
+      const typeNames = ['', '图生图', '背景替换', '抠图', '风格滤镜', '智能换脸'];
       const newRecord: HistoryRecord = {
         id: Date.now().toString(),
         originalImage: imageUrl,
         resultImages,
         markdown: resultMarkdown,
         timestamp: Date.now(),
-        title: `处理结果 ${new Date().toLocaleString()}`
+        title: `${typeNames[type]} ${new Date().toLocaleString()}`
       };
       
       // 保存到IndexedDB
@@ -196,6 +232,161 @@ export default function GenImage() {
     },
     showUploadList: false,
   };
+
+  const bgUploadProps = {
+    name: 'file',
+    multiple: false,
+    accept: 'image/*',
+    beforeUpload: (file: File) => {
+      handleUpload(file, true);
+      return false; // 阻止默认上传
+    },
+    showUploadList: false,
+  };
+
+  // 单图片处理组件
+  const SingleImageProcessor = ({ type, title, buttonText }: { type: number; title: string; buttonText: string }) => (
+    <div>
+      <Card title={title} style={{ marginBottom: '24px' }}>
+        <Dragger {...uploadProps} disabled={uploading}>
+          <p className="ant-upload-drag-icon">
+            <InboxOutlined />
+          </p>
+          <p className="ant-upload-text">
+            {uploading ? '正在上传...' : '点击或拖拽图片到此区域上传'}
+          </p>
+          <p className="ant-upload-hint">
+            支持 JPG、PNG、GIF、WEBP 格式，文件大小不超过 10MB
+          </p>
+        </Dragger>
+      </Card>
+
+      {imageUrl && (
+        <div>
+          <Card title="上传的图片" style={{ marginBottom: '24px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <img 
+                src={imageUrl} 
+                alt="uploaded" 
+                style={{ 
+                  margin: '0 auto',
+                  width: '60%', 
+                  maxHeight: '400px', 
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }} 
+              />
+            </div>
+          </Card>
+          <div style={{ marginTop: '20px', textAlign: 'center', marginBottom: '20px' }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<SendOutlined />}
+              loading={processing}
+              onClick={() => processImage(type)}
+              style={{ fontSize: '16px', height: '48px', paddingLeft: '24px', paddingRight: '24px' }}
+            >
+              {processing ? '处理中...' : buttonText}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // 双图片处理组件
+  const DoubleImageProcessor = ({ type, buttonText }: { type: number; title: string; buttonText: string }) => (
+    <div>
+      <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
+        <div style={{ flex: 1 }}>
+          <Card title="主图" style={{ height: '100%' }}>
+            <Dragger {...uploadProps} disabled={uploading}>
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">
+                {uploading ? '正在上传...' : '上传主图'}
+              </p>
+              <p className="ant-upload-hint">
+                支持 JPG、PNG、GIF、WEBP 格式
+              </p>
+            </Dragger>
+          </Card>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Card title="背景图" style={{ height: '100%' }}>
+            <Dragger {...bgUploadProps} disabled={uploading}>
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">
+                {uploading ? '正在上传...' : '上传背景图'}
+              </p>
+              <p className="ant-upload-hint">
+                支持 JPG、PNG、GIF、WEBP 格式
+              </p>
+            </Dragger>
+          </Card>
+        </div>
+      </div>
+
+      {(imageUrl || bgImageUrl) && (
+        <Card title="预览" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', gap: '24px', justifyContent: 'center' }}>
+            {imageUrl && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ marginBottom: '8px', fontWeight: '500' }}>主图</div>
+                <img 
+                  src={imageUrl} 
+                  alt="main" 
+                  style={{ 
+                    width: '200px', 
+                    height: '200px', 
+                    objectFit: 'contain',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }} 
+                />
+              </div>
+            )}
+            {bgImageUrl && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ marginBottom: '8px', fontWeight: '500' }}>背景图</div>
+                <img 
+                  src={bgImageUrl} 
+                  alt="background" 
+                  style={{ 
+                    width: '200px', 
+                    height: '200px', 
+                    objectFit: 'contain',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }} 
+                />
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {imageUrl && bgImageUrl && (
+        <div style={{ marginTop: '20px', textAlign: 'center', marginBottom: '20px' }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<SendOutlined />}
+            loading={processing}
+            onClick={() => processImage(type, bgImageUrl)}
+            style={{ fontSize: '16px', height: '48px', paddingLeft: '24px', paddingRight: '24px' }}
+          >
+            {processing ? '处理中...' : buttonText}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   // 瀑布流组件
   const WaterfallGrid = ({ records }: { records: HistoryRecord[] }) => {
@@ -339,60 +530,13 @@ export default function GenImage() {
       label: (
         <span style={{ color: activeTab === 'upload' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
           <SendOutlined />
-          图片处理
+          图生图
         </span>
       ),
       children: (
         <div>
-          {/* 上传区域 */}
-          <Card title="选择图片" style={{ marginBottom: '24px' }}>
-            <Dragger {...uploadProps} disabled={uploading}>
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">
-                {uploading ? '正在上传...' : '点击或拖拽图片到此区域上传'}
-              </p>
-              <p className="ant-upload-hint">
-                支持 JPG、PNG、GIF、WEBP 格式，文件大小不超过 10MB
-              </p>
-            </Dragger>
-          </Card>
-
-          {/* 图片预览和提交区域 */}
-          {imageUrl && (
-            <div>
-              <Card title="上传的图片" style={{ marginBottom: '24px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <img 
-                    src={imageUrl} 
-                    alt="uploaded" 
-                    style={{ 
-                      margin: '0 auto',
-                      width: '60%', 
-                      maxHeight: '400px', 
-                      objectFit: 'contain',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }} 
-                  />
-                </div>
-              </Card>
-              <div style={{ marginTop: '20px',textAlign: 'center',marginBottom: '20px' }}>
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<SendOutlined />}
-                  loading={processing}
-                  onClick={processImage}
-                  style={{ fontSize: '16px', height: '48px', paddingLeft: '24px', paddingRight: '24px' }}
-                >
-                  {processing ? '处理中...' : '提交给 Coze 工作流处理'}
-                </Button>
-              </div>
-            </div>
-          )}
-
+          <SingleImageProcessor type={1} title="选择图片" buttonText="提交给 Coze 工作流处理" />
+          
           {/* 处理状态 */}
           {processing && (
             <Card style={{ marginBottom: '24px' }}>
@@ -436,6 +580,162 @@ export default function GenImage() {
                 >
                   {result}
                 </ReactMarkdown>
+              </div>
+            </Card>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'background',
+      label: (
+        <span style={{ color: activeTab === 'background' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
+          🎨 背景替换
+        </span>
+      ),
+      children: (
+        <div>
+          <DoubleImageProcessor type={2} title="背景替换" buttonText="开始背景替换" />
+          
+          {processing && (
+            <Card style={{ marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin size="large" />
+                <p style={{ marginTop: '16px', fontSize: '16px', color: '#666' }}>正在处理背景替换，请稍候...</p>
+              </div>
+            </Card>
+          )}
+
+          {result && (
+            <Card title="处理结果" style={{ marginBottom: '24px' }}>
+              <div 
+                style={{ 
+                  background: '#f9f9f9', 
+                  padding: '20px', 
+                  borderRadius: '8px',
+                  border: '1px solid #e8e8e8',
+                  maxHeight: '600px',
+                  overflowY: 'auto'
+                }}
+              >
+                <ReactMarkdown>{result}</ReactMarkdown>
+              </div>
+            </Card>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'cutout',
+      label: (
+        <span style={{ color: activeTab === 'cutout' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
+          ✂️ 抠图
+        </span>
+      ),
+      children: (
+        <div>
+          <SingleImageProcessor type={3} title="选择要抠图的图片" buttonText="开始抠图处理" />
+          
+          {processing && (
+            <Card style={{ marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin size="large" />
+                <p style={{ marginTop: '16px', fontSize: '16px', color: '#666' }}>正在进行抠图处理，请稍候...</p>
+              </div>
+            </Card>
+          )}
+
+          {result && (
+            <Card title="处理结果" style={{ marginBottom: '24px' }}>
+              <div 
+                style={{ 
+                  background: '#f9f9f9', 
+                  padding: '20px', 
+                  borderRadius: '8px',
+                  border: '1px solid #e8e8e8',
+                  maxHeight: '600px',
+                  overflowY: 'auto'
+                }}
+              >
+                <ReactMarkdown>{result}</ReactMarkdown>
+              </div>
+            </Card>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'style',
+      label: (
+        <span style={{ color: activeTab === 'style' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
+          🎭 风格滤镜
+        </span>
+      ),
+      children: (
+        <div>
+          <SingleImageProcessor type={4} title="选择要添加风格滤镜的图片" buttonText="应用风格滤镜" />
+          
+          {processing && (
+            <Card style={{ marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin size="large" />
+                <p style={{ marginTop: '16px', fontSize: '16px', color: '#666' }}>正在应用风格滤镜，请稍候...</p>
+              </div>
+            </Card>
+          )}
+
+          {result && (
+            <Card title="处理结果" style={{ marginBottom: '24px' }}>
+              <div 
+                style={{ 
+                  background: '#f9f9f9', 
+                  padding: '20px', 
+                  borderRadius: '8px',
+                  border: '1px solid #e8e8e8',
+                  maxHeight: '600px',
+                  overflowY: 'auto'
+                }}
+              >
+                <ReactMarkdown>{result}</ReactMarkdown>
+              </div>
+            </Card>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'face',
+      label: (
+        <span style={{ color: activeTab === 'face' ? 'rgba(24, 144, 255, 0.8)' : 'gray' }}>
+          👤 智能换脸
+        </span>
+      ),
+      children: (
+        <div>
+          <DoubleImageProcessor type={5} title="智能换脸" buttonText="开始换脸处理" />
+          
+          {processing && (
+            <Card style={{ marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin size="large" />
+                <p style={{ marginTop: '16px', fontSize: '16px', color: '#666' }}>正在进行智能换脸，请稍候...</p>
+              </div>
+            </Card>
+          )}
+
+          {result && (
+            <Card title="处理结果" style={{ marginBottom: '24px' }}>
+              <div 
+                style={{ 
+                  background: '#f9f9f9', 
+                  padding: '20px', 
+                  borderRadius: '8px',
+                  border: '1px solid #e8e8e8',
+                  maxHeight: '600px',
+                  overflowY: 'auto'
+                }}
+              >
+                <ReactMarkdown>{result}</ReactMarkdown>
               </div>
             </Card>
           )}
